@@ -1,0 +1,11 @@
+# Production/container profile — activated with SPRING_PROFILES_ACTIVE=prod.
+# All values must come from the environment; no dev fallbacks here.
+app:
+  aws:
+    s3:
+      bucket: ${AWS_S3_BUCKET}
+      region: ${AWS_REGION}
+
+logging:
+  level:
+    com.example.invoiceplatform: INFO

@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: invoice-platform
+  profiles:
+    default: local
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 25MB
+
+server:
+  port: 8081
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+app:
+  aws:
+    s3:
+      # bucket: ${AWS_S3_BUCKET:invoices-buckets}
+      # region: ${AWS_REGION:ap-southeast-1}
+      # upload-prefix: ${AWS_S3_UPLOAD_PREFIX:invoices-buckets/invoices/}
+  snowflake:
+    # Bound via SnowflakeProperties; DataSource wiring lands with the Snowflake integration.
+    account: ${SNOWFLAKE_ACCOUNT:}
+    user: ${SNOWFLAKE_USER:}
+    password: ${SNOWFLAKE_PASSWORD:}
+    warehouse: ${SNOWFLAKE_WAREHOUSE:}
+    database: ${SNOWFLAKE_DB:}
+    schema: ${SNOWFLAKE_SCHEMA:}
+
+logging:
+  level:
+    root: INFO
