@@ -14,16 +14,17 @@ USE SCHEMA CORE;
 USE WAREHOUSE INVOICE_ANALYTICS_WH;
 
 -- ============================================================
--- Raw landing zone: one row per source CSV row, columns kept as
--- STRING so a malformed OCR extraction never fails the COPY INTO.
--- Json Data is parsed to VARIANT downstream, not here.
+-- Raw landing zone: one row per source CSV row. Only the JSON
+-- extraction is kept here now (file_name/ocr_text were dropped -
+-- OCR-vs-JSON reconciliation is Java-side only now, see backend
+-- InvoiceReconciliationService / POST /api/v1/invoices/parse).
+-- Json Data stays STRING here so a malformed extraction never
+-- fails the COPY INTO; it's parsed to VARIANT downstream.
 -- ============================================================
 CREATE TABLE IF NOT EXISTS raw_invoice_ocr (
-    file_name   STRING,
-    json_data   STRING,
-    ocr_text    STRING,
-    _stage_file STRING,   -- METADATA$FILENAME, for traceability back to S3
-    loaded_at   TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP()
+    id              NUMBER AUTOINCREMENT PRIMARY KEY,
+    json_data       STRING,
+    updatetimestamp TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP()
 );
 
 -- ============================================================
@@ -58,7 +59,7 @@ CREATE TABLE IF NOT EXISTS dim_date (
 -- ============================================================
 CREATE TABLE IF NOT EXISTS fact_invoice (
     invoice_number   STRING PRIMARY KEY,
-    source_file_name STRING,
+    raw_invoice_id   NUMBER REFERENCES raw_invoice_ocr(id),
     seller_id        STRING REFERENCES dim_seller(seller_id),
     client_id        STRING REFERENCES dim_client(client_id),
     invoice_date_id  NUMBER REFERENCES dim_date(date_id),
@@ -81,16 +82,17 @@ CREATE TABLE IF NOT EXISTS fact_invoice_line (
     PRIMARY KEY (invoice_number, line_number)
 );
 
--- Mirrors backend InvoiceReconciliationResult (see
--- backend/.../dto/InvoiceReconciliationResult.java) so the same discrepancy
--- rule that runs synchronously in the API also runs here for anything that
--- was bulk-loaded straight into the stage, bypassing the API.
+-- Reconciliation now runs on the JSON alone (raw_invoice_ocr no longer keeps
+-- ocr_text): SUM(items[].total_price) should equal subtotal.total, so a gap
+-- means the OCR extraction dropped/misread a line item or the total. The
+-- OCR-text-vs-JSON check still exists Java-side (InvoiceReconciliationService,
+-- POST /api/v1/invoices/parse) before the file ever lands.
 CREATE TABLE IF NOT EXISTS fact_reconciliation_exception (
-    source_file_name STRING,
-    invoice_number   STRING,
-    extracted_total  NUMBER(18,2),
-    ocr_total        NUMBER(18,2),
-    difference       NUMBER(18,2),
-    is_discrepancy   BOOLEAN,
-    checked_at       TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP()
+    raw_invoice_id  NUMBER REFERENCES raw_invoice_ocr(id),
+    invoice_number  STRING,
+    line_item_sum   NUMBER(18,2),   -- SUM(items[].total_price) from the JSON
+    stated_total    NUMBER(18,2),   -- subtotal.total from the JSON
+    difference      NUMBER(18,2),
+    is_discrepancy  BOOLEAN,
+    checked_at      TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP()
 );

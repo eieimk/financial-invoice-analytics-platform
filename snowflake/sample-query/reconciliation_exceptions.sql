@@ -1,13 +1,13 @@
--- Extraction-quality report: OCR rows where the JSON extraction and the raw
--- OCR text disagree on the invoice total, flagged for manual review.
+-- Extraction-quality report: invoices whose JSON line items don't sum to the
+-- JSON's own stated total, flagged for manual review.
 USE DATABASE INVOICE_ANALYTICS;
 USE SCHEMA CORE;
 
 SELECT
-    source_file_name,
+    raw_invoice_id,
     invoice_number,
-    extracted_total,
-    ocr_total,
+    line_item_sum,
+    stated_total,
     difference,
     checked_at
 FROM fact_reconciliation_exception

@@ -10,7 +10,7 @@ CREATE OR REPLACE DYNAMIC TABLE item_detail
     WAREHOUSE = INVOICE_ANALYTICS_WH
 AS
 SELECT
-    r.file_name                                            AS source_file_name,
+    r.id                                                   AS raw_invoice_id,
     j.value:invoice:invoice_number::STRING                 AS invoice_number,
     TRY_TO_DATE(j.value:invoice:invoice_date::STRING, 'MM/DD/YYYY')  AS invoice_date,
     TRY_TO_DATE(j.value:invoice:due_date::STRING, 'MM/DD/YYYY')      AS due_date,

@@ -16,7 +16,7 @@ BEGIN
     -- every MERGE below reads that snapshot instead of re-querying the stream.
     CREATE OR REPLACE TEMPORARY TABLE _batch AS
         SELECT
-            file_name,
+            id AS raw_invoice_id,
             PARSE_JSON(json_data) AS payload
         FROM raw_invoice_ocr_stream;
 
@@ -68,7 +68,7 @@ BEGIN
     USING (
         SELECT
             payload:invoice:invoice_number::STRING AS invoice_number,
-            file_name                              AS source_file_name,
+            raw_invoice_id,
             SHA1_HEX(payload:invoice:seller_name::STRING || payload:invoice:seller_address::STRING) AS seller_id,
             SHA1_HEX(payload:invoice:client_name::STRING || payload:invoice:client_address::STRING) AS client_id,
             TO_NUMBER(TO_CHAR(TRY_TO_DATE(payload:invoice:invoice_date::STRING, 'MM/DD/YYYY'), 'YYYYMMDD')) AS invoice_date_id,
@@ -83,9 +83,9 @@ BEGIN
     ) s
     ON t.invoice_number = s.invoice_number
     WHEN NOT MATCHED THEN
-        INSERT (invoice_number, source_file_name, seller_id, client_id, invoice_date_id,
+        INSERT (invoice_number, raw_invoice_id, seller_id, client_id, invoice_date_id,
                 due_date, tax, discount, total, bank_name, account_number, payment_method)
-        VALUES (s.invoice_number, s.source_file_name, s.seller_id, s.client_id, s.invoice_date_id,
+        VALUES (s.invoice_number, s.raw_invoice_id, s.seller_id, s.client_id, s.invoice_date_id,
                 s.due_date, s.tax, s.discount, s.total, s.bank_name, s.account_number, s.payment_method);
 
     -- fact_invoice_line: plain INSERT, not MERGE - a task retry after a
