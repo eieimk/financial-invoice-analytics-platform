@@ -3,7 +3,7 @@ package com.example.invoiceplatform.controller;
 import com.example.invoiceplatform.dto.InvoiceReconciliationResult;
 import com.example.invoiceplatform.dto.UploadResultResponse;
 import com.example.invoiceplatform.exception.InvalidFileException;
-import com.example.invoiceplatform.service.FileStorageService;
+import com.example.invoiceplatform.service.InvoiceUploadService;
 import com.example.invoiceplatform.service.InvoiceIngestionService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,7 +29,7 @@ class InvoiceControllerTest {
     private MockMvc mockMvc;
 
     @MockBean
-    private FileStorageService fileStorageService;
+    private InvoiceUploadService invoiceUploadService;
 
     @MockBean
     private InvoiceIngestionService invoiceIngestionService;
@@ -38,26 +38,30 @@ class InvoiceControllerTest {
     void returns201WithUploadResult_whenUploadSucceeds() throws Exception {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "invoices.csv", "text/csv", "a,b\n".getBytes());
-        when(fileStorageService.store(any())).thenReturn(UploadResultResponse.builder()
+        when(invoiceUploadService.upload(any())).thenReturn(UploadResultResponse.builder()
                 .fileName("invoices.csv")
                 .s3Key("raw/invoices/uuid-invoices.csv")
                 .bucket("test-bucket")
                 .sizeBytes(4L)
                 .uploadedAt(Instant.now())
+                .rowsLoadedToWarehouse(1)
+                .warehouseRefreshTriggered(true)
                 .build());
 
         mockMvc.perform(multipart("/api/v1/invoices/upload").file(file))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.fileName").value("invoices.csv"))
-                .andExpect(jsonPath("$.data.bucket").value("test-bucket"));
+                .andExpect(jsonPath("$.data.bucket").value("test-bucket"))
+                .andExpect(jsonPath("$.data.rowsLoadedToWarehouse").value(1))
+                .andExpect(jsonPath("$.data.warehouseRefreshTriggered").value(true));
     }
 
     @Test
     void returns400WithErrorBody_whenFileIsInvalid() throws Exception {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "invoices.pdf", "application/pdf", "x".getBytes());
-        when(fileStorageService.store(any()))
+        when(invoiceUploadService.upload(any()))
                 .thenThrow(new InvalidFileException("Only CSV files are supported, got: invoices.pdf"));
 
         mockMvc.perform(multipart("/api/v1/invoices/upload").file(file))
@@ -76,14 +80,14 @@ class InvoiceControllerTest {
     @Test
     void returns200WithReconciliationResults_whenParseSucceeds() throws Exception {
         MockMultipartFile file = new MockMultipartFile(
-                "file", "invoices_ocr.csv", "text/csv", "File Name,Json Data,OCRed Text\n".getBytes());
+                "file", "invoices.csv", "text/csv", "JSON_DATA\n".getBytes());
         when(invoiceIngestionService.ingest(any())).thenReturn(List.of(InvoiceReconciliationResult.builder()
-                .sourceFileName("batch1-0494.jpg")
+                .rowNumber(1L)
                 .invoiceNumber("84652373")
                 .sellerName("Nguyen-Roach")
                 .clientName("Clark-Foster")
-                .extractedTotal(new BigDecimal("232.95"))
-                .ocrTotal(new BigDecimal("232.95"))
+                .lineItemSum(new BigDecimal("232.95"))
+                .statedTotal(new BigDecimal("232.95"))
                 .discrepancy(false)
                 .difference(BigDecimal.ZERO)
                 .build()));

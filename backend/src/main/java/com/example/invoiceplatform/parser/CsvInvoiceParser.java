@@ -19,15 +19,16 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Parses the OCR invoice-extraction CSV: one row per scanned invoice image, with a
- * structured JSON extraction column and the raw OCR text column side by side so
- * downstream reconciliation can cross-check one against the other.
+ * Parses the upload CSV: a single JSON_DATA column, one structured invoice
+ * extraction per row (matches the raw_invoice_ocr landing table, which also
+ * keeps only the JSON). Header lookup is case-insensitive so JSON_DATA /
+ * json_data both work.
  */
 @Component
 @RequiredArgsConstructor
 public class CsvInvoiceParser implements InvoiceParser {
 
-    private static final List<String> REQUIRED_HEADERS = List.of("File Name", "Json Data", "OCRed Text");
+    private static final String JSON_COLUMN = "json_data";
 
     private final ObjectMapper objectMapper;
 
@@ -48,16 +49,15 @@ public class CsvInvoiceParser implements InvoiceParser {
         try (var reader = new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8);
              CSVParser parser = format.parse(reader)) {
 
-            for (String required : REQUIRED_HEADERS) {
-                if (!parser.getHeaderNames().contains(required)) {
-                    throw new InvoiceParsingException(
-                            "Missing required column '" + required + "' in " + file.getOriginalFilename(), null);
-                }
-            }
+            String jsonHeader = parser.getHeaderNames().stream()
+                    .filter(h -> h.trim().toLowerCase(Locale.ROOT).equals(JSON_COLUMN))
+                    .findFirst()
+                    .orElseThrow(() -> new InvoiceParsingException(
+                            "Missing required column 'JSON_DATA' in " + file.getOriginalFilename(), null));
 
             List<ParsedInvoiceRecord> records = new ArrayList<>();
             for (CSVRecord row : parser) {
-                records.add(toRecord(row));
+                records.add(toRecord(row, jsonHeader));
             }
             return records;
         } catch (IOException e) {
@@ -65,18 +65,14 @@ public class CsvInvoiceParser implements InvoiceParser {
         }
     }
 
-    private ParsedInvoiceRecord toRecord(CSVRecord row) {
-        String fileName = row.get("File Name");
-        String rawJson = row.get("Json Data");
-        String ocrText = row.get("OCRed Text");
-
-        InvoiceJsonPayload extraction;
+    private ParsedInvoiceRecord toRecord(CSVRecord row, String jsonHeader) {
+        String rawJson = row.get(jsonHeader);
         try {
-            extraction = objectMapper.readValue(rawJson, InvoiceJsonPayload.class);
+            InvoiceJsonPayload extraction = objectMapper.readValue(rawJson, InvoiceJsonPayload.class);
+            return new ParsedInvoiceRecord(row.getRecordNumber(), rawJson, extraction);
         } catch (IOException e) {
             throw new InvoiceParsingException(
-                    "Malformed 'Json Data' for row " + fileName + " (line " + row.getRecordNumber() + ")", e);
+                    "Malformed JSON_DATA at row " + row.getRecordNumber(), e);
         }
-        return new ParsedInvoiceRecord(fileName, extraction, ocrText);
     }
 }

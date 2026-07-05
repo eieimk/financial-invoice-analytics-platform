@@ -36,9 +36,9 @@ class InvoiceIngestionServiceTest {
         MockMultipartFile file = new MockMultipartFile("file", "invoices_ocr.csv", "text/csv", new byte[0]);
         InvoiceJsonPayload payload = new InvoiceJsonPayload(
                 new InvoiceHeader("Clark-Foster", "addr", "Nguyen-Roach", "addr", "84652373", "02/23/2021", ""),
-                List.of(), new InvoiceSubtotal("21.18", "", "232.95"), null);
-        ParsedInvoiceRecord record = new ParsedInvoiceRecord(
-                "batch1-0494.jpg", payload, "Total $ 211,77 $ 21,18 $ 232,95");
+                List.of(new com.example.invoiceplatform.model.InvoiceLineItem("Wine Rack", "1.00", "232.95")),
+                new InvoiceSubtotal("21.18", "", "232.95"), null);
+        ParsedInvoiceRecord record = new ParsedInvoiceRecord(1L, "{}", payload);
 
         when(otherParser.supports(file)).thenReturn(false);
         when(csvParser.supports(file)).thenReturn(true);

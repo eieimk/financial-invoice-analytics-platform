@@ -1,7 +1,7 @@
 package com.example.invoiceplatform.config;
 
+import com.example.invoiceplatform.repository.EmptyInvoiceAnalyticsRepository;
 import com.example.invoiceplatform.repository.InvoiceAnalyticsRepository;
-import com.example.invoiceplatform.repository.MockInvoiceAnalyticsRepository;
 import com.example.invoiceplatform.repository.SnowflakeInvoiceAnalyticsRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -16,10 +16,10 @@ class InvoiceAnalyticsRepositoryConfigTest {
             .withUserConfiguration(InvoiceAnalyticsRepositoryConfig.class);
 
     @Test
-    void usesMockRepository_whenNoSnowflakeAccountConfigured() {
+    void usesEmptyRepository_whenNoSnowflakeAccountConfigured() {
         contextRunner.run(context ->
                 assertThat(context.getBean(InvoiceAnalyticsRepository.class))
-                        .isInstanceOf(MockInvoiceAnalyticsRepository.class));
+                        .isInstanceOf(EmptyInvoiceAnalyticsRepository.class));
     }
 
     @Test
