@@ -7,12 +7,38 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '5'))
     }
 
+    environment {
+        // BuildKit reuses cached layers across builds instead of re-writing
+        // unchanged ones — meaningfully less disk churn per run on a small EBS volume.
+        DOCKER_BUILDKIT = '1'
+    }
+
     stages {
 
         stage('Checkout') {
             steps {
                 cleanWs()
                 checkout scm
+            }
+        }
+
+        stage('Check disk space') {
+            steps {
+                script {
+                    // Fail fast with a clear message instead of dying mid-`npm ci`
+                    // with an opaque "no space left on device" partway through a build.
+                    def availKb = sh(
+                        script: "df -Pk / | tail -1 | awk '{print \$4}'",
+                        returnStdout: true
+                    ).trim().toInteger()
+                    def availMb = availKb / 1024
+
+                    echo "Available disk space on /: ${availMb} MB"
+
+                    if (availMb < 2048) {
+                        error "Only ${availMb} MB free on / — need at least 2048 MB headroom to safely build images. Run 'docker system prune -af --volumes' or grow the EBS volume before retrying."
+                    }
+                }
             }
         }
 
@@ -33,27 +59,29 @@ pipeline {
             }
         }
 
-        stage('Build Docker Images') {
+        stage('Deploy (Docker Compose)') {
             steps {
                 script {
+                    // Reclaim space from any previous run's dangling layers *before*
+                    // building — this is what actually prevents the mid-build
+                    // "no space left on device" failure, not just post-run cleanup.
+                    sh 'docker system prune -af --volumes || true'
 
-                    if (env.BACKEND == "true") {
-                        sh 'docker build -t backend:latest backend'
+                    def services = []
+                    if (env.BACKEND == "true")  { services << 'backend' }
+                    if (env.FRONTEND == "true") { services << 'frontend' }
+
+                    if (services) {
+                        // nginx has no heavy deps to install, but rebuild it whenever
+                        // an upstream service changes so its image stays in sync.
+                        services << 'nginx'
+                        sh "docker compose build ${services.join(' ')}"
+                    } else {
+                        echo 'No backend/frontend changes — reusing existing images.'
                     }
 
-                    if (env.FRONTEND == "true") {
-                        sh 'docker build -t frontend:latest frontend'
-                    }
+                    sh 'docker compose up -d --remove-orphans'
                 }
-            }
-        }
-
-        stage('Deploy (Local Docker Compose)') {
-            steps {
-                sh '''
-                    docker compose down || true
-                    docker compose up -d --build
-                '''
             }
         }
     }
