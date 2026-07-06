@@ -19,6 +19,11 @@ pipeline {
             steps {
                 cleanWs()
                 checkout scm
+
+                // cleanWs() wipes .env every run since it's untracked (and must
+                // never be committed — it holds Snowflake/AWS secrets). Restore
+                // it from a fixed path outside the workspace that survives builds.
+                sh 'cp /opt/invoice-platform/.env .env'
             }
         }
 
