@@ -6,12 +6,12 @@ import java.math.BigDecimal;
 
 @Builder
 public record InvoiceReconciliationResult(
-        String sourceFileName,
+        long rowNumber,
         String invoiceNumber,
         String sellerName,
         String clientName,
-        BigDecimal extractedTotal,
-        BigDecimal ocrTotal,
+        BigDecimal lineItemSum,
+        BigDecimal statedTotal,
         boolean discrepancy,
         BigDecimal difference
 ) {

@@ -24,12 +24,12 @@ class CsvInvoiceParserTest {
             + "\"payment_instructions\":{\"due_date\":\"\",\"bank_name\":\"\","
             + "\"account_number\":\"\",\"payment_method\":\"\"}}";
 
-    private static final String SAMPLE_CSV = "File Name,Json Data,OCRed Text\n"
-            + "batch1-0494.jpg,\"" + SAMPLE_JSON.replace("\"", "\"\"") + "\",\"Total $ 211,77 $ 21,18 $ 232,95\"\n";
+    private static final String SAMPLE_CSV = "JSON_DATA\n"
+            + "\"" + SAMPLE_JSON.replace("\"", "\"\"") + "\"\n";
 
     @Test
     void supports_returnsTrue_forCsvFile() {
-        MockMultipartFile file = new MockMultipartFile("file", "invoices_ocr.csv", "text/csv", new byte[0]);
+        MockMultipartFile file = new MockMultipartFile("file", "invoices.csv", "text/csv", new byte[0]);
         assertThat(parser.supports(file)).isTrue();
     }
 
@@ -40,38 +40,44 @@ class CsvInvoiceParserTest {
     }
 
     @Test
-    void parse_extractsStructuredRecordAndKeepsRawOcrText() {
+    void parse_extractsStructuredRecord_fromSingleJsonColumn() {
         MockMultipartFile file = new MockMultipartFile(
-                "file", "invoices_ocr.csv", "text/csv", SAMPLE_CSV.getBytes());
+                "file", "invoices.csv", "text/csv", SAMPLE_CSV.getBytes());
 
         List<ParsedInvoiceRecord> records = parser.parse(file);
 
         assertThat(records).hasSize(1);
         ParsedInvoiceRecord record = records.get(0);
-        assertThat(record.sourceFileName()).isEqualTo("batch1-0494.jpg");
+        assertThat(record.rowNumber()).isEqualTo(1L);
         assertThat(record.extraction().invoice().invoiceNumber()).isEqualTo("84652373");
         assertThat(record.extraction().subtotal().total()).isEqualTo("232.95");
-        assertThat(record.ocrText()).contains("232,95");
     }
 
     @Test
-    void parse_throwsInvoiceParsingException_whenRequiredColumnMissing() {
-        MockMultipartFile file = new MockMultipartFile(
-                "file", "invoices_ocr.csv", "text/csv", "File Name,Json Data\nfoo,{}\n".getBytes());
+    void parse_acceptsLowercaseHeader() {
+        String csv = "json_data\n\"" + SAMPLE_JSON.replace("\"", "\"\"") + "\"\n";
+        MockMultipartFile file = new MockMultipartFile("file", "invoices.csv", "text/csv", csv.getBytes());
 
-        assertThatThrownBy(() -> parser.parse(file))
-                .isInstanceOf(InvoiceParsingException.class)
-                .hasMessageContaining("OCRed Text");
+        assertThat(parser.parse(file)).hasSize(1);
     }
 
     @Test
-    void parse_throwsInvoiceParsingException_whenJsonDataMalformed() {
+    void parse_throwsInvoiceParsingException_whenJsonColumnMissing() {
         MockMultipartFile file = new MockMultipartFile(
-                "file", "invoices_ocr.csv", "text/csv",
-                "File Name,Json Data,OCRed Text\nfoo,not-json,some text\n".getBytes());
+                "file", "invoices.csv", "text/csv", "File Name,Other\nfoo,bar\n".getBytes());
 
         assertThatThrownBy(() -> parser.parse(file))
                 .isInstanceOf(InvoiceParsingException.class)
-                .hasMessageContaining("foo");
+                .hasMessageContaining("JSON_DATA");
+    }
+
+    @Test
+    void parse_throwsInvoiceParsingException_whenJsonMalformed() {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "invoices.csv", "text/csv", "JSON_DATA\nnot-json\n".getBytes());
+
+        assertThatThrownBy(() -> parser.parse(file))
+                .isInstanceOf(InvoiceParsingException.class)
+                .hasMessageContaining("row 1");
     }
 }

@@ -3,8 +3,8 @@ package com.example.invoiceplatform.controller;
 import com.example.invoiceplatform.dto.ApiResponse;
 import com.example.invoiceplatform.dto.InvoiceReconciliationResult;
 import com.example.invoiceplatform.dto.UploadResultResponse;
-import com.example.invoiceplatform.service.FileStorageService;
 import com.example.invoiceplatform.service.InvoiceIngestionService;
+import com.example.invoiceplatform.service.InvoiceUploadService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -25,14 +25,14 @@ import java.util.List;
 @RequiredArgsConstructor
 public class InvoiceController {
 
-    private final FileStorageService fileStorageService;
+    private final InvoiceUploadService invoiceUploadService;
     private final InvoiceIngestionService invoiceIngestionService;
 
-    @Operation(summary = "Upload an invoice CSV file to the raw landing zone (S3)")
+    @Operation(summary = "Upload an invoice CSV (single JSON_DATA column): lands in S3 and the warehouse")
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<UploadResultResponse>> upload(
             @RequestPart("file") MultipartFile file) {
-        UploadResultResponse result = fileStorageService.store(file);
+        UploadResultResponse result = invoiceUploadService.upload(file);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("File uploaded successfully", result));
     }
