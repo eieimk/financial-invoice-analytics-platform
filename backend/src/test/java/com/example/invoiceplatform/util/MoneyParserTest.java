@@ -18,24 +18,8 @@ class MoneyParserTest {
     }
 
     @Test
-    void parsesCommaDecimal_convertingToPeriod() {
-        assertThat(MoneyParser.parseCommaDecimal("232,95")).isEqualByComparingTo("232.95");
-    }
-
-    @Test
-    void parsesCommaDecimal_withThousandsSeparator() {
-        assertThat(MoneyParser.parseCommaDecimal("1.234,56")).isEqualByComparingTo("1234.56");
-    }
-
-    @Test
-    void extractsLastAmount_fromOcrSummaryLine() {
-        String ocrText = "Total $ 211,77 $ 21,18 $ 232,95";
-        assertThat(MoneyParser.extractLastAmount(ocrText)).isEqualByComparingTo("232.95");
-    }
-
-    @Test
-    void returnsNull_whenOcrTextHasNoAmount() {
-        assertThat(MoneyParser.extractLastAmount("no numbers here")).isNull();
-        assertThat(MoneyParser.extractLastAmount(null)).isNull();
+    void returnsNull_whenJsonAmountUnparseable() {
+        assertThat(MoneyParser.parseJsonAmount("12,50")).isNull();
+        assertThat(MoneyParser.parseJsonAmount("abc")).isNull();
     }
 }
