@@ -22,6 +22,7 @@ export function SpendBySellerChart({ rows }: { rows: SellerSpend[] }) {
       }),
     )
     yAxis.get('renderer').grid.template.set('visible', false)
+    yAxis.get('renderer').labels.template.setAll({ fill: am5.color(theme.ink), fontSize: 11 })
     yAxis.data.setAll(data)
 
     const xAxis = chart.xAxes.push(
@@ -30,6 +31,12 @@ export function SpendBySellerChart({ rows }: { rows: SellerSpend[] }) {
         renderer: am5xy.AxisRendererX.new(root, { strokeOpacity: 0 }),
       }),
     )
+    xAxis.get('renderer').labels.template.setAll({ fill: am5.color(theme.muted), fontSize: 10 })
+
+    const gradient = am5.LinearGradient.new(root, {
+      stops: [{ color: am5.color(theme.series1) }, { color: am5.color(theme.series2) }],
+      rotation: 0,
+    })
 
     const series = chart.series.push(
       am5xy.ColumnSeries.new(root, {
@@ -38,20 +45,20 @@ export function SpendBySellerChart({ rows }: { rows: SellerSpend[] }) {
         valueXField: 'totalSpend',
         categoryYField: 'sellerName',
         tooltip: am5.Tooltip.new(root, {
-          labelText: "{categoryY}: {valueX.formatNumber('$#,###.00')} ({invoiceCount} invoices)",
+          labelText: "{categoryY}: [bold]{valueX.formatNumber('$#,###.00')}[/] ({invoiceCount} invoices)",
         }),
       }),
     )
-    // Single measure (spend) across categories -> single hue, thin rounded bars
+    // Single measure (spend) across categories -> single gradient, thin rounded bars
     series.columns.template.setAll({
-      fill: am5.color(theme.series1),
-      stroke: am5.color(theme.series1),
-      height: 22,
-      cornerRadiusTR: 4,
-      cornerRadiusBR: 4,
+      fillGradient: gradient,
+      strokeGradient: gradient,
+      height: am5.percent(75),
+      cornerRadiusTR: 6,
+      cornerRadiusBR: 6,
     })
     series.data.setAll(data)
-    series.appear(600)
+    series.appear(1000, 100)
   }, [rows])
 
   return <div ref={ref} className="chart-body" role="img" aria-label="Bar chart of total spend by seller" />
