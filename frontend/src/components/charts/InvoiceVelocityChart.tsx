@@ -2,16 +2,17 @@ import * as am5 from "@amcharts/amcharts5";
 import * as am5xy from "@amcharts/amcharts5/xy";
 import { useAmRoot } from "../../charts/useAmRoot";
 import { useChartTheme } from "../../charts/theme";
-import { buildMonthlyTrendData } from "../../charts/configs";
+import { buildInvoiceVelocityData } from "../../charts/configs";
 import type { MonthlySpend } from "../../types/api";
 
-export function MonthlyTrendChart({ rows }: { rows: MonthlySpend[] }) {
+/** Invoice throughput per month — same series as the spend trend, count field instead of amount. */
+export function InvoiceVelocityChart({ rows }: { rows: MonthlySpend[] }) {
   const theme = useChartTheme();
 
   const ref = useAmRoot(
     theme,
     (root) => {
-      const data = buildMonthlyTrendData(rows);
+      const data = buildInvoiceVelocityData(rows);
 
       const chart = root.container.children.push(
         am5xy.XYChart.new(root, {
@@ -26,7 +27,7 @@ export function MonthlyTrendChart({ rows }: { rows: MonthlySpend[] }) {
         am5xy.DateAxis.new(root, {
           baseInterval: { timeUnit: "month", count: 1 },
           renderer: am5xy.AxisRendererX.new(root, {
-            minGridDistance: 60,
+            minGridDistance: 50,
             strokeOpacity: 0,
           }),
         }),
@@ -39,6 +40,9 @@ export function MonthlyTrendChart({ rows }: { rows: MonthlySpend[] }) {
       const yAxis = chart.yAxes.push(
         am5xy.ValueAxis.new(root, {
           min: 0,
+          // Override the root's currency numberFormat ($#,###.00) — this
+          // axis is an invoice count, not money.
+          numberFormat: "#",
           renderer: am5xy.AxisRendererY.new(root, { strokeOpacity: 0 }),
         }),
       );
@@ -46,37 +50,33 @@ export function MonthlyTrendChart({ rows }: { rows: MonthlySpend[] }) {
         .get("renderer")
         .labels.template.setAll({ fill: am5.color(theme.muted), fontSize: 10 });
 
-      const fillGradient = am5.LinearGradient.new(root, {
-        stops: [{ opacity: 0.35 }, { opacity: 0 }],
+      const gradient = am5.LinearGradient.new(root, {
+        stops: [
+          { color: am5.color(theme.series2) },
+          { color: am5.color(theme.series1) },
+        ],
         rotation: 90,
       });
 
       const series = chart.series.push(
-        am5xy.SmoothedXLineSeries.new(root, {
+        am5xy.ColumnSeries.new(root, {
           xAxis,
           yAxis,
           valueXField: "date",
-          valueYField: "totalSpend",
-          stroke: am5.color(theme.series1),
-          fill: am5.color(theme.series1),
+          valueYField: "invoiceCount",
           tooltip: am5.Tooltip.new(root, {
             labelText:
-              "{valueX.formatDate('yyyy-MM')}: [bold]{valueY.formatNumber('$#,###.00')}[/] ({invoiceCount.formatNumber('0')} invoices)",
+              "{valueX.formatDate('yyyy-MM')}: [bold]{valueY.formatNumber('0')}[/] invoices",
           }),
         }),
       );
-      series.strokes.template.set("strokeWidth", 3);
-      series.fills.template.setAll({ visible: true, fillGradient });
-      series.bullets.push(() =>
-        am5.Bullet.new(root, {
-          sprite: am5.Circle.new(root, {
-            radius: 4,
-            fill: am5.color(theme.series2),
-            stroke: am5.color(0x0b0d17),
-            strokeWidth: 2,
-          }),
-        }),
-      );
+      series.columns.template.setAll({
+        width: am5.percent(60),
+        cornerRadiusTL: 6,
+        cornerRadiusTR: 6,
+        fillGradient: gradient,
+        strokeGradient: gradient,
+      });
       series.data.setAll(data);
 
       chart.set(
@@ -93,7 +93,7 @@ export function MonthlyTrendChart({ rows }: { rows: MonthlySpend[] }) {
       ref={ref}
       className="chart-body"
       role="img"
-      aria-label="Line chart of monthly total spend"
+      aria-label="Column chart of invoice count per month"
     />
   );
 }

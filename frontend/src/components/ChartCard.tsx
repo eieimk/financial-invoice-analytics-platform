@@ -9,12 +9,18 @@ interface ChartCardProps {
   onRetry: () => void
   children: ReactNode
   wide?: boolean
+  /** Spans the full grid width (e.g. the invoice-velocity chart), not just the 2-column "wide" span. */
+  full?: boolean
 }
 
 /** Shared card chrome + loading/error/empty states for the dashboard charts. */
-export function ChartCard({ title, hint, loading, error, empty, onRetry, children, wide }: ChartCardProps) {
+export function ChartCard({ title, hint, loading, error, empty, onRetry, children, wide, full }: ChartCardProps) {
+  const classes = ['card', 'chart-card']
+  if (full) classes.push('chart-card--full')
+  else if (wide) classes.push('chart-card--wide')
+
   return (
-    <section className={wide ? 'card chart-card chart-card--wide' : 'card chart-card'}>
+    <section className={classes.join(' ')}>
       <h2>{title}</h2>
       <p className="card__hint">{hint}</p>
       {loading && <div className="chart-skeleton" aria-hidden="true" />}

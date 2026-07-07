@@ -16,6 +16,7 @@ const theme: ChartTheme = {
   muted: '#777',
   grid: '#eee',
   series1: '#2a78d6',
+  series2: '#22d3ee',
   categorical: ['#2a78d6', '#1baf7a', '#eda100'],
   status: { good: '#0ca30c', warning: '#fab219', serious: '#ec835a', critical: '#d03b3b', none: '#898781' },
 }
