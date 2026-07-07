@@ -5,7 +5,10 @@
 USE DATABASE INVOICE_ANALYTICS;
 USE SCHEMA CORE;
 
-CREATE TASK IF NOT EXISTS load_star_schema_task
+-- CREATE OR REPLACE (not IF NOT EXISTS) so re-running this script applies
+-- fixes to the existing task. Replacing leaves it SUSPENDED - run the
+-- ALTER ... RESUME at the bottom afterwards.
+CREATE OR REPLACE TASK load_star_schema_task
     WAREHOUSE = INVOICE_ANALYTICS_WH
     SCHEDULE = '5 MINUTE'
     WHEN SYSTEM$STREAM_HAS_DATA('raw_invoice_ocr_stream')
@@ -88,9 +91,14 @@ BEGIN
         VALUES (s.invoice_number, s.raw_invoice_id, s.seller_id, s.client_id, s.invoice_date_id,
                 s.due_date, s.tax, s.discount, s.total, s.bank_name, s.account_number, s.payment_method);
 
-    -- fact_invoice_line: plain INSERT, not MERGE - a task retry after a
-    -- partial failure could double-insert lines. Acceptable for this demo;
-    -- in production this would key off (invoice_number, line_number) via MERGE.
+    -- fact_invoice_line: delete-then-insert keyed on the batch's invoice
+    -- numbers, so re-landing the same invoice (task retry, repeated upload of
+    -- the same file) replaces its lines instead of duplicating them.
+    DELETE FROM fact_invoice_line
+    WHERE invoice_number IN (
+        SELECT DISTINCT payload:invoice:invoice_number::STRING FROM _batch
+    );
+
     INSERT INTO fact_invoice_line (invoice_number, line_number, description, quantity, total_price)
     SELECT
         payload:invoice:invoice_number::STRING AS invoice_number,
@@ -98,8 +106,17 @@ BEGIN
         item.value:description::STRING         AS description,
         TRY_TO_DECIMAL(item.value:quantity::STRING, 18, 2)    AS quantity,
         TRY_TO_DECIMAL(item.value:total_price::STRING, 18, 2) AS total_price
-    FROM _batch, LATERAL FLATTEN(input => payload:items) item;
+    FROM (
+        -- a re-uploaded invoice appears once per landing; keep only the
+        -- newest raw row per invoice so its lines aren't inserted twice
+        SELECT payload
+        FROM _batch
+        QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY payload:invoice:invoice_number::STRING
+            ORDER BY raw_invoice_id DESC
+        ) = 1
+    ), LATERAL FLATTEN(input => payload:items) item;
 END;
 
--- New tasks are created SUSPENDED by default.
--- ALTER TASK load_star_schema_task RESUME;
+-- Tasks are created/replaced SUSPENDED by default.
+ALTER TASK load_star_schema_task RESUME;

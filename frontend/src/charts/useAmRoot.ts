@@ -27,6 +27,7 @@ export function useAmRoot(
     }
     root.setThemes(themes)
     root.numberFormatter.setAll({ numberFormat: '$#,###.00' })
+    root._logo?.dispose()
     build(root)
     return () => root.dispose()
     // eslint-disable-next-line react-hooks/exhaustive-deps

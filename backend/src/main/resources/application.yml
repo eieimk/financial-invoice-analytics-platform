@@ -18,9 +18,9 @@ springdoc:
 app:
   aws:
     s3:
-      # bucket: ${AWS_S3_BUCKET:invoices-buckets}
-      # region: ${AWS_REGION:ap-southeast-1}
-      # upload-prefix: ${AWS_S3_UPLOAD_PREFIX:invoices-buckets/invoices/}
+      bucket: ${AWS_S3_BUCKET}
+      region: ${AWS_REGION}
+      upload-prefix: ${AWS_S3_UPLOAD_PREFIX}
   snowflake:
     # Bound via SnowflakeProperties; DataSource wiring lands with the Snowflake integration.
     account: ${SNOWFLAKE_ACCOUNT:}

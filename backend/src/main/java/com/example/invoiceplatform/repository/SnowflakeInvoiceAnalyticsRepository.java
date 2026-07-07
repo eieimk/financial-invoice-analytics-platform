@@ -34,7 +34,7 @@ public record SnowflakeInvoiceAnalyticsRepository(
             FROM fact_invoice f
             JOIN dim_seller s ON s.seller_id = f.seller_id
             GROUP BY s.seller_name
-            ORDER BY SUM(f.total) DESC
+            ORDER BY SUM(f.total) DESC NULLS LAST
             LIMIT 1
             """;
 
@@ -46,7 +46,7 @@ public record SnowflakeInvoiceAnalyticsRepository(
             FROM fact_invoice f
             JOIN dim_seller s ON s.seller_id = f.seller_id
             GROUP BY s.seller_name
-            ORDER BY total_spend DESC
+            ORDER BY total_spend DESC NULLS LAST
             LIMIT :limit
             """;
 

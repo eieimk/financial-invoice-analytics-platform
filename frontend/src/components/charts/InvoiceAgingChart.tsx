@@ -32,6 +32,7 @@ export function InvoiceAgingChart({ rows }: { rows: AgingBucket[] }) {
         }),
       );
       xAxis.get("renderer").grid.template.set("visible", false);
+      xAxis.get("renderer").labels.template.setAll({ fill: am5.color(theme.muted), fontSize: 10 });
       xAxis.data.setAll(data);
 
       const yAxis = chart.yAxes.push(
@@ -40,6 +41,7 @@ export function InvoiceAgingChart({ rows }: { rows: AgingBucket[] }) {
           renderer: am5xy.AxisRendererY.new(root, { strokeOpacity: 0 }),
         }),
       );
+      yAxis.get("renderer").labels.template.setAll({ fill: am5.color(theme.muted), fontSize: 10 });
 
       const series = chart.series.push(
         am5xy.ColumnSeries.new(root, {
@@ -48,7 +50,8 @@ export function InvoiceAgingChart({ rows }: { rows: AgingBucket[] }) {
           valueYField: "amount",
           categoryXField: "label",
           tooltip: am5.Tooltip.new(root, {
-            labelText: "{categoryX}: ({invoiceCount} invoices)",
+            labelText:
+              "{categoryX}: {valueY.formatNumber('$#,###.00')} ({invoiceCount} invoices)",
           }),
         }),
       );
@@ -66,7 +69,7 @@ export function InvoiceAgingChart({ rows }: { rows: AgingBucket[] }) {
         am5.color((target.dataItem?.dataContext as AgingDatum).color),
       );
       series.data.setAll(data);
-      series.appear(600);
+      series.appear(1000, 100);
     },
     [rows],
   );

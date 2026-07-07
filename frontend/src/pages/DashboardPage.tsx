@@ -2,18 +2,19 @@ import { useDashboard } from "../hooks/useDashboard";
 import { useInvoiceUpload } from "../hooks/useInvoiceUpload";
 import { useApiData } from "../hooks/useApiData";
 import {
-  fetchInvoiceAging,
   fetchMonthlyTrend,
   fetchProductLines,
   fetchSpendBySeller,
 } from "../api/dashboard";
 import { StatTile, StatTileSkeleton } from "../components/StatTile";
 import { UploadCard } from "../components/UploadCard";
+import { ReconciliationScore } from "../components/ReconciliationScore";
 import { ReconciliationTable } from "../components/ReconciliationTable";
 import { ChartCard } from "../components/ChartCard";
+import { SellerLeaderboard } from "../components/SellerLeaderboard";
 import { SpendBySellerChart } from "../components/charts/SpendBySellerChart";
 import { MonthlyTrendChart } from "../components/charts/MonthlyTrendChart";
-import { InvoiceAgingChart } from "../components/charts/InvoiceAgingChart";
+import { InvoiceVelocityChart } from "../components/charts/InvoiceVelocityChart";
 import { ProductScatterChart } from "../components/charts/ProductScatterChart";
 import { ProductWordCloud } from "../components/charts/ProductWordCloud";
 import { formatCount, formatMoney } from "../utils/format";
@@ -21,7 +22,7 @@ import { formatCount, formatMoney } from "../utils/format";
 // Module-level so the references are stable across renders (useApiData keys
 // its reload effect on the fetcher identity).
 const fetchTopSellers = () => fetchSpendBySeller(8);
-const fetchTopSellersForCloud = () => fetchSpendBySeller(20);
+const fetchTopSellersForCloud = () => fetchSpendBySeller(40);
 const fetchLines = () => fetchProductLines(200);
 
 export function DashboardPage() {
@@ -29,7 +30,6 @@ export function DashboardPage() {
   const sellerSpend = useApiData(fetchTopSellers);
   const sellerWordCloud = useApiData(fetchTopSellersForCloud);
   const monthlyTrend = useApiData(fetchMonthlyTrend);
-  const invoiceAging = useApiData(fetchInvoiceAging);
   const productLines = useApiData(fetchLines);
   const uploadState = useInvoiceUpload();
 
@@ -38,7 +38,6 @@ export function DashboardPage() {
     void sellerSpend.reload();
     void sellerWordCloud.reload();
     void monthlyTrend.reload();
-    void invoiceAging.reload();
     void productLines.reload();
   }
 
@@ -54,15 +53,14 @@ export function DashboardPage() {
   return (
     <main className="page">
       <header className="page__header">
-        <h1>Invoice Analytics</h1>
-        <p className="page__subtitle">
-          Accounts-payable overview from Snowflake
-        </p>
+        <div className="page__heading">
+          <span className="eyebrow">Seller Insights</span>
+          <h1>Financial Invoice Analytics</h1>
+          <p className="page__subtitle">Invoice overview from Snowflake</p>
+        </div>
       </header>
 
       <section className="section">
-        <h2 className="section__title">Overview</h2>
-
         {dashboard.loading && (
           <div className="stat-grid" aria-hidden="true">
             <StatTileSkeleton label="Total invoices" />
@@ -90,22 +88,18 @@ export function DashboardPage() {
         {dashboard.data && (
           <div className="stat-grid" data-testid="stat-grid">
             <StatTile
-              icon="🧾"
               label="Total invoices"
               value={formatCount(dashboard.data.totalInvoices)}
             />
             <StatTile
-              icon="💵"
               label="Total spend"
               value={formatMoney(dashboard.data.totalRevenue)}
             />
             <StatTile
-              icon="📊"
               label="Average invoice"
               value={formatMoney(dashboard.data.averageInvoiceAmount)}
             />
             <StatTile
-              icon="🏆"
               label="Top vendor"
               value={dashboard.data.topVendor ?? "—"}
               detail="by total spend"
@@ -116,10 +110,11 @@ export function DashboardPage() {
 
       <section className="section">
         <h2 className="section__title">Spend analysis</h2>
-        <div className="chart-grid">
+        <div className="main-grid">
           <ChartCard
             wide
-            title="Monthly spend"
+            full
+            title="Spend trajectory"
             hint="Total invoice amount per month, from the Snowflake star schema."
             loading={monthlyTrend.loading}
             error={monthlyTrend.error}
@@ -131,7 +126,7 @@ export function DashboardPage() {
 
           <ChartCard
             wide
-            title="Spend by seller"
+            title="Top sellers by spend"
             hint="Top sellers by total invoice amount."
             loading={sellerSpend.loading}
             error={sellerSpend.error}
@@ -142,15 +137,27 @@ export function DashboardPage() {
           </ChartCard>
 
           <ChartCard
-            wide
-            title="Invoice"
-            hint="Outstanding amount by days past due — the AP follow-up queue."
-            loading={invoiceAging.loading}
-            error={invoiceAging.error}
-            empty={(invoiceAging.data?.length ?? 0) === 0}
-            onRetry={() => void invoiceAging.reload()}
+            title="Leaderboard"
+            hint="Top 5 sellers, ranked."
+            loading={sellerSpend.loading}
+            error={sellerSpend.error}
+            empty={(sellerSpend.data?.length ?? 0) === 0}
+            onRetry={() => void sellerSpend.reload()}
           >
-            <InvoiceAgingChart rows={invoiceAging.data ?? []} />
+            <SellerLeaderboard rows={sellerSpend.data ?? []} />
+          </ChartCard>
+
+          <ChartCard
+            wide
+            full
+            title="Invoice count"
+            hint="Invoice count per month — throughput, not amount."
+            loading={monthlyTrend.loading}
+            error={monthlyTrend.error}
+            empty={(monthlyTrend.data?.length ?? 0) === 0}
+            onRetry={() => void monthlyTrend.reload()}
+          >
+            <InvoiceVelocityChart rows={monthlyTrend.data ?? []} />
           </ChartCard>
         </div>
       </section>
@@ -160,8 +167,8 @@ export function DashboardPage() {
         <div className="chart-grid">
           <ChartCard
             wide
-            title="Line items over time"
-            hint="Every invoice line as a point — price by date, sized by quantity, colored by seller."
+            title="Items over time"
+            hint="Every invoice line as a point — by date, sized by price, colored by seller."
             loading={productLines.loading}
             error={productLines.error}
             empty={(productLines.data?.length ?? 0) === 0}
@@ -173,7 +180,7 @@ export function DashboardPage() {
           <ChartCard
             wide
             title="Top-selling sellers"
-            hint="Top 20 sellers by total spend, sized by spend — hover for invoice count."
+            hint="Top 40 sellers by total spend, sized by spend — hover for invoice count."
             loading={sellerWordCloud.loading}
             error={sellerWordCloud.error}
             empty={(sellerWordCloud.data?.length ?? 0) === 0}
@@ -197,9 +204,14 @@ export function DashboardPage() {
           <p className="card__hint">
             Line items summed against each invoice's own stated total.
           </p>
+          <ReconciliationScore results={uploadState.reconciliation} />
           <ReconciliationTable results={uploadState.reconciliation} />
         </section>
       )}
+
+      <footer className="page__footer">
+        Financial Invoice Analytics · amCharts 5 · Snowflake
+      </footer>
     </main>
   );
 }
