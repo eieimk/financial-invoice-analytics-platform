@@ -50,17 +50,19 @@ class InvoiceUploadServiceTest {
     }
 
     @Test
-    void landsRowsInWarehouse_andTriggersTasks_afterS3Store() {
+    void storesInS3_andNudgesLoadTasks_afterParsing() {
         when(ingestionService.parse(file)).thenReturn(List.of(
                 new ParsedInvoiceRecord(1L, "{\"a\":1}", null),
                 new ParsedInvoiceRecord(2L, "{\"b\":2}", null)));
         when(fileStorageService.store(file)).thenReturn(storedResult());
-        when(warehouseWriter.insertRawInvoices(List.of("{\"a\":1}", "{\"b\":2}"))).thenReturn(2);
         when(warehouseWriter.triggerLoadTasks()).thenReturn(true);
 
         UploadResultResponse result = uploadService.upload(file);
 
-        assertThat(result.rowsLoadedToWarehouse()).isEqualTo(2);
+        // Ingestion into raw_invoice_ocr is Snowpipe's job now (auto-ingest
+        // off the S3 object below) — this service must not also insert over
+        // JDBC, or every upload double-lands.
+        verify(warehouseWriter, never()).insertRawInvoices(any());
         assertThat(result.warehouseRefreshTriggered()).isTrue();
         assertThat(result.s3Key()).isEqualTo("invoices/uuid-invoices.csv");
     }
@@ -73,18 +75,17 @@ class InvoiceUploadServiceTest {
                 .isInstanceOf(InvoiceParsingException.class);
 
         verify(fileStorageService, never()).store(any());
-        verify(warehouseWriter, never()).insertRawInvoices(any());
+        verify(warehouseWriter, never()).triggerLoadTasks();
     }
 
     @Test
-    void doesNotTriggerTasks_whenNoRowsLanded() {
+    void reflectsWarehouseRefreshTriggered_whenTaskNudgeFails() {
         when(ingestionService.parse(file)).thenReturn(List.of(new ParsedInvoiceRecord(1L, "{}", null)));
         when(fileStorageService.store(file)).thenReturn(storedResult());
-        when(warehouseWriter.insertRawInvoices(any())).thenReturn(0);
+        when(warehouseWriter.triggerLoadTasks()).thenReturn(false);
 
         UploadResultResponse result = uploadService.upload(file);
 
-        verify(warehouseWriter, never()).triggerLoadTasks();
         assertThat(result.warehouseRefreshTriggered()).isFalse();
     }
 }
