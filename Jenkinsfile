@@ -27,26 +27,6 @@ pipeline {
             }
         }
 
-        stage('Check disk space') {
-            steps {
-                script {
-                    // Fail fast with a clear message instead of dying mid-`npm ci`
-                    // with an opaque "no space left on device" partway through a build.
-                    def availKb = sh(
-                        script: "df -Pk / | tail -1 | awk '{print \$4}'",
-                        returnStdout: true
-                    ).trim().toInteger()
-                    def availMb = availKb / 1024
-
-                    echo "Available disk space on /: ${availMb} MB"
-
-                    if (availMb < 2048) {
-                        error "Only ${availMb} MB free on / — need at least 2048 MB headroom to safely build images. Run 'docker system prune -af --volumes' or grow the EBS volume before retrying."
-                    }
-                }
-            }
-        }
-
         stage('Detect Changes') {
             steps {
                 script {

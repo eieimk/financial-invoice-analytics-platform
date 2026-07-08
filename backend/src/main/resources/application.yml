@@ -20,7 +20,7 @@ app:
     s3:
       bucket: ${AWS_S3_BUCKET}
       region: ${AWS_REGION}
-      upload-prefix: ${AWS_S3_UPLOAD_PREFIX}
+      upload-prefix: ${AWS_S3_UPLOAD_PREFIX:invoices/}
   snowflake:
     # Bound via SnowflakeProperties; DataSource wiring lands with the Snowflake integration.
     account: ${SNOWFLAKE_ACCOUNT:}
