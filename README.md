@@ -8,35 +8,15 @@ https://github.com/user-attachments/assets/ed8cffab-7116-450e-b582-1f97b24aa023
 
 
 
-**OCR invoice extraction + accounts-payable (AP) automation**, end to end: ingest scanned vendor
+**OCR invoice extraction + automation**, end to end: ingest scanned vendor
 invoice images (as structured JSON, as if output by a legacy OCR/back-office system), validate the
 extraction, land it in a Snowflake star schema, and expose AP analytics (spend by seller, invoice
 aging, extraction-quality exceptions) through a Spring Boot API and a React dashboard.
 
 ## High-level architecture
 
-```mermaid
-flowchart LR
-    Browser["Browser"]
+<img width="1485" height="981" alt="image" src="https://github.com/user-attachments/assets/562e2950-0ea2-4eba-b10c-86eeefac1999" />
 
-    subgraph EC2["Single EC2 instance (docker compose)"]
-        Nginx["nginx gateway<br/>:80 — rate-limited /api/*"]
-        Frontend["frontend<br/>React + Vite, served by its own nginx"]
-        Backend["backend<br/>Spring Boot API :8081"]
-    end
-
-    S3[("AWS S3<br/>raw/invoices/* — audit landing zone")]
-    Snowflake[("Snowflake<br/>raw_invoice_ocr → star schema<br/>+ dynamic tables")]
-    Jenkins["Jenkins (on the same EC2 box)<br/>path-based CI/CD"]
-
-    Browser -->|HTTPS :80| Nginx
-    Nginx -->|"/"| Frontend
-    Nginx -->|"/api/*"| Backend
-    Backend -->|PutObject| S3
-    Backend -->|JDBC| Snowflake
-
-    Jenkins -.->|builds + docker compose up -d| EC2
-```
 
 - **Single entrypoint**: nginx is the only service bound to a host port. `frontend` and `backend`
   are internal-only 
